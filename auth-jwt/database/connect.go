@@ -1,6 +1,7 @@
 package database
 
 import (
+	"api-fiber-gorm/helper"
 	"fmt"
 	"strconv"
 
@@ -27,6 +28,90 @@ func ConnectDB() {
 	}
 
 	fmt.Println("Connection Opened to Database")
-	DB.AutoMigrate(&model.Product{}, &model.User{})
+	err = AutoMigrateAndSeed(DB)
+	if err != nil {
+		return
+	}
 	fmt.Println("Database Migrated")
+}
+
+// AutoMigrateAndSeed AutoMigrate and Seed
+func AutoMigrateAndSeed(db *gorm.DB) error {
+	// AutoMigrate Role model
+	if err := db.AutoMigrate(&model.Product{}, &model.User{}, &model.Role{}); err != nil {
+		return err
+	}
+
+	// Seed roles
+	roles := []string{"SUPERADMIN", "ADMIN", "USER"}
+	for _, roleName := range roles {
+		// Use FirstOrCreate to ensure no duplicate records
+		var role model.Role
+		db.FirstOrCreate(&role, model.Role{Name: roleName})
+	}
+
+	// Retrieve roles
+	var superAdminRole, adminRole, userRole model.Role
+	db.First(&superAdminRole, "name = ?", "SUPERADMIN")
+	db.First(&adminRole, "name = ?", "ADMIN")
+	db.First(&userRole, "name = ?", "USER")
+
+	// Create hash passwords
+	hashSuperadmin, err := helper.HashPassword("super$2024")
+	if err != nil {
+		return err
+	}
+
+	hashAdmin, err := helper.HashPassword("admin$2024")
+	if err != nil {
+		return err
+	}
+
+	hashUser, err := helper.HashPassword("user$2024")
+	if err != nil {
+		return err
+	}
+
+	// Create users and assign roles
+	users := []model.User{
+		{
+			Username: "superadmin",
+			Email:    "superadmin@example.com",
+			Password: hashSuperadmin,
+			Names:    "SuperAdmin",
+			Roles:    []model.Role{superAdminRole, adminRole},
+		},
+		{
+			Username: "admin",
+			Email:    "admin@example.com",
+			Password: hashAdmin,
+			Names:    "Admin",
+			Roles:    []model.Role{adminRole},
+		},
+		{
+			Username: "user",
+			Email:    "user@example.com",
+			Password: hashUser,
+			Names:    "User",
+			Roles:    []model.Role{userRole},
+		},
+	}
+
+	for _, userData := range users {
+		var user model.User
+		// Create user
+		db.FirstOrCreate(&user, model.User{
+			Username: userData.Username,
+			Email:    userData.Email,
+			Password: userData.Password,
+			Names:    userData.Names,
+		})
+		// Associate roles
+		err := db.Model(&user).Association("Roles").Replace(userData.Roles)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

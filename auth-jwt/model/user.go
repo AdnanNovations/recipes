@@ -9,4 +9,5 @@ type User struct {
 	Email    string `gorm:"uniqueIndex;not null" json:"email"`
 	Password string `gorm:"not null" json:"password"`
 	Names    string `json:"names"`
+	Roles    []Role `gorm:"many2many:user_roles;" json:"roles"`
 }

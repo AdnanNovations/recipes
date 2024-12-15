@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"api-fiber-gorm/helper"
 	"strconv"
 
 	"api-fiber-gorm/database"
@@ -8,13 +9,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
-	"golang.org/x/crypto/bcrypt"
 )
-
-func hashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
-	return string(bytes), err
-}
 
 func validToken(t *jwt.Token, id string) bool {
 	n, err := strconv.Atoi(id)
@@ -66,7 +61,7 @@ func CreateUser(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"status": "error", "message": "Review your input", "data": err})
 	}
 
-	hash, err := hashPassword(user.Password)
+	hash, err := helper.HashPassword(user.Password)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"status": "error", "message": "Couldn't hash password", "data": err})
 	}
